@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ============ Banners ============ -->
+    <record id="dg_banner_view_list" model="ir.ui.view">
+        <field name="name">dg.banner.list</field>
+        <field name="model">dg.banner</field>
+        <field name="arch" type="xml">
+            <list string="Banners">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="page"/>
+                <field name="show_buttons"/>
+                <field name="is_published" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="dg_banner_view_form" model="ir.ui.view">
+        <field name="name">dg.banner.form</field>
+        <field name="model">dg.banner</field>
+        <field name="arch" type="xml">
+            <form string="Banner">
+                <sheet>
+                    <field name="image" widget="image" class="oe_avatar"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Banner title"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="page"/>
+                            <field name="show_buttons"/>
+                        </group>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="is_published"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="dg_banner_action" model="ir.actions.act_window">
+        <field name="name">Banners</field>
+        <field name="res_model">dg.banner</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ FAQ ============ -->
+    <record id="dg_faq_view_list" model="ir.ui.view">
+        <field name="name">dg.faq.list</field>
+        <field name="model">dg.faq</field>
+        <field name="arch" type="xml">
+            <list string="FAQ" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="description"/>
+                <field name="is_published" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="dg_faq_action" model="ir.actions.act_window">
+        <field name="name">FAQ</field>
+        <field name="res_model">dg.faq</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ News ============ -->
+    <record id="dg_news_view_list" model="ir.ui.view">
+        <field name="name">dg.news.list</field>
+        <field name="model">dg.news</field>
+        <field name="arch" type="xml">
+            <list string="News">
+                <field name="name"/>
+                <field name="publication_date"/>
+                <field name="is_published" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="dg_news_view_form" model="ir.ui.view">
+        <field name="name">dg.news.form</field>
+        <field name="model">dg.news</field>
+        <field name="arch" type="xml">
+            <form string="News Article">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Article title"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="publication_date"/>
+                            <field name="is_published"/>
+                        </group>
+                        <group>
+                            <field name="cover_image" widget="image" class="oe_avatar"/>
+                            <field name="detail_image" widget="image" class="oe_avatar"/>
+                        </group>
+                    </group>
+                    <group string="Short Text">
+                        <field name="short_text" nolabel="1"/>
+                    </group>
+                    <group string="Detailed Text">
+                        <field name="detailed_text" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="dg_news_action" model="ir.actions.act_window">
+        <field name="name">News</field>
+        <field name="res_model">dg.news</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ hr.job: add the deadline ============ -->
+    <record id="hr_job_view_form_inherit_deadline" model="ir.ui.view">
+        <field name="name">hr.job.form.deadline</field>
+        <field name="model">hr.job</field>
+        <field name="inherit_id" ref="hr_recruitment.hr_job_survey"/>
+        <field name="arch" type="xml">
+            <!-- address_id is the anchor: no_of_recruitment is not rendered in
+                 hr_job_survey, so inheriting from it would fail at install. -->
+            <field name="address_id" position="after">
+                <field name="application_deadline"/>
+                <field name="web_company_name"/>
+                <field name="web_experience"/>
+            </field>
+            <!-- Into the notebook the base hr.view_hr_job_form already provides,
+                 rather than adding a second one beside it. -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Website Content" name="dg_website_content">
+                    <group string="Responsibilities">
+                        <field name="web_responsibilities" nolabel="1"/>
+                    </group>
+                    <group string="Requirements">
+                        <field name="web_requirements" nolabel="1"/>
+                    </group>
+                    <group string="Benefits">
+                        <field name="web_benefits" nolabel="1"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ============ API clients ============ -->
+    <record id="dg_api_client_view_list" model="ir.ui.view">
+        <field name="name">dg.api.client.list</field>
+        <field name="model">dg.api.client</field>
+        <field name="arch" type="xml">
+            <list string="API Clients">
+                <field name="name"/>
+                <field name="key_hint"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="dg_api_client_view_form" model="ir.ui.view">
+        <field name="name">dg.api.client.form</field>
+        <field name="model">dg.api.client</field>
+        <field name="arch" type="xml">
+            <form string="API Client">
+                <header>
+                    <button name="action_generate_key" type="object" string="Generate New Key"
+                            class="btn-primary"
+                            confirm="This replaces any key already issued to this consumer. Their integration will stop working until the new key is in place. Continue?"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Revoked" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. snapp.am website (production)"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="key_hint" placeholder="No key issued yet"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group string="Notes">
+                        <field name="note" nolabel="1" placeholder="Who holds this key, and where it is stored."/>
+                    </group>
+                    <div class="text-muted mt-3">
+                        Only the digest of a key is stored. If a key is lost, generate a new one --
+                        it cannot be recovered. Untick Active to revoke access immediately.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="dg_api_client_action" model="ir.actions.act_window">
+        <field name="name">API Clients</field>
+        <field name="res_model">dg.api.client</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ============ Menus ============ -->
+    <menuitem id="dg_content_menu_root" name="Web Content" web_icon="website,static/description/icon.png" sequence="90"
+              groups="group_dg_content_editor"/>
+    <menuitem id="dg_menu_banner" name="Banners" parent="dg_content_menu_root" action="dg_banner_action" sequence="10"/>
+    <menuitem id="dg_menu_news" name="News" parent="dg_content_menu_root" action="dg_news_action" sequence="20"/>
+    <menuitem id="dg_menu_faq" name="FAQ" parent="dg_content_menu_root" action="dg_faq_action" sequence="30"/>
+    <menuitem id="dg_menu_api_clients" name="API Clients" parent="dg_content_menu_root"
+              action="dg_api_client_action" sequence="90" groups="base.group_system"/>
+</odoo>

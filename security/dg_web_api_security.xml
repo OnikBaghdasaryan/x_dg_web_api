@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_dg_content_editor" model="res.groups">
+        <field name="name">Website Content Editor</field>
+        <!-- Odoo 19 replaced res.groups.category_id with privilege_id. -->
+        <field name="privilege_id" ref="website.res_groups_privilege_website"/>
+        <field name="comment">Can create and publish banners, FAQ entries and news for the public website.</field>
+        <!-- Seed the administrators. Without this the Web Content menu is invisible
+             to everyone on a fresh install, including whoever would have to grant
+             the group. This record is outside noupdate, so -u re-applies it. -->
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    </record>
+
+    <data noupdate="1">
+        <!-- The public API controller deliberately does not sudo(). These rules are
+             what actually stops an unpublished draft from being served, so that a
+             mistake in the controller cannot leak content that is not ready. -->
+        <record id="dg_banner_public_rule" model="ir.rule">
+            <field name="name">Website Banner: public sees published only</field>
+            <field name="model_id" ref="model_dg_banner"/>
+            <field name="domain_force">[('is_published', '=', True)]</field>
+            <field name="groups" eval="[(4, ref('base.group_public')), (4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="dg_faq_public_rule" model="ir.rule">
+            <field name="name">Website FAQ: public sees published only</field>
+            <field name="model_id" ref="model_dg_faq"/>
+            <field name="domain_force">[('is_published', '=', True)]</field>
+            <field name="groups" eval="[(4, ref('base.group_public')), (4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="dg_news_public_rule" model="ir.rule">
+            <field name="name">Website News: public sees published only</field>
+            <field name="model_id" ref="model_dg_news"/>
+            <field name="domain_force">[('is_published', '=', True)]</field>
+            <field name="groups" eval="[(4, ref('base.group_public')), (4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+    </data>
+</odoo>
