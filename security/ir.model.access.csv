@@ -1,0 +1,14 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_dg_banner_public,dg.banner.public,model_dg_banner,base.group_public,1,0,0,0
+access_dg_banner_portal,dg.banner.portal,model_dg_banner,base.group_portal,1,0,0,0
+access_dg_banner_user,dg.banner.user,model_dg_banner,base.group_user,1,0,0,0
+access_dg_banner_editor,dg.banner.editor,model_dg_banner,group_dg_content_editor,1,1,1,1
+access_dg_faq_public,dg.faq.public,model_dg_faq,base.group_public,1,0,0,0
+access_dg_faq_portal,dg.faq.portal,model_dg_faq,base.group_portal,1,0,0,0
+access_dg_faq_user,dg.faq.user,model_dg_faq,base.group_user,1,0,0,0
+access_dg_faq_editor,dg.faq.editor,model_dg_faq,group_dg_content_editor,1,1,1,1
+access_dg_news_public,dg.news.public,model_dg_news,base.group_public,1,0,0,0
+access_dg_news_portal,dg.news.portal,model_dg_news,base.group_portal,1,0,0,0
+access_dg_news_user,dg.news.user,model_dg_news,base.group_user,1,0,0,0
+access_dg_news_editor,dg.news.editor,model_dg_news,group_dg_content_editor,1,1,1,1
+access_dg_api_client_admin,dg.api.client.admin,model_dg_api_client,base.group_system,1,1,1,1

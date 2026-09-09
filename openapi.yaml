@@ -1,0 +1,485 @@
+openapi: 3.1.0
+
+info:
+  title: Snapp Content API
+  version: "1.0.0"
+  summary: Read-only JSON API serving the public website's content.
+  description: |
+    Seven `GET` endpoints. No authentication, no token, no cookie. CORS is open to
+    all origins, so these are callable from a Next.js server component, a route
+    handler, or directly from browser code.
+
+    ## Conventions that hold everywhere
+
+    * **Absent values are `null`**, never `""` or `false`.
+    * **Datetimes are `"2026-09-01 09:00:00"`** — a space, not a `T`, and no
+      timezone suffix. They are always UTC. `new Date(value)` misparses this in
+      Safari and treats it as local time elsewhere, so convert explicitly:
+      `new Date(s.replace(' ', 'T') + 'Z')`.
+    * **Dates are `"2026-09-01"`.**
+    * **Rich-text fields contain sanitized HTML**, not Markdown — render as HTML.
+      These are `detailed_text` on news, and `description`, `responsibilities`,
+      `requirements` and `benefits` on a job.
+    * **Only published records exist.** Drafts are absent from lists and return
+      `404` by id. If content seems missing, it has not been published yet.
+    * **Images are returned as paths**, e.g. `/web/image/dg.news/3/cover_image`.
+      Prefix with the server URL. Append `/WIDTHxHEIGHT` to have the server
+      resize and cache on the fly: `/web/image/dg.news/3/cover_image/640x360`.
+      An unpublished record's image returns a generic placeholder with status
+      `200` rather than a 404, so never treat a successful image response as
+      proof that a record is published.
+    * **`lang` is accepted on every endpoint.** Use an Odoo locale code such as
+      `en_US` or `ru_RU`. An unrecognised value falls back to the default rather
+      than erroring.
+
+    ## Pagination
+
+    `/news` and `/jobs` accept `limit` and `offset` and return an envelope with a
+    `count`. `limit` defaults to 50 and is **capped at 100** — asking for 500
+    silently yields 100. Page by incrementing `offset` until
+    `offset + results.length` reaches `count`.
+
+    `/banners`, `/faq` and `/departments` are small fixed lists and return
+    `{ "results": [...] }` with no `count`.
+
+servers:
+  - url: https://api.snapp.am
+    description: Replace with the base URL you are given. Every path below hangs off it.
+
+tags:
+  - name: Banners
+  - name: FAQ
+  - name: News
+  - name: Careers
+
+paths:
+
+  /api/v1/banners:
+    get:
+      tags: [Banners]
+      summary: Hero banners for a page
+      description: |
+        Omit `page` to get every banner. When a page has more than one banner,
+        order them by `sequence` ascending.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Restrict to one page. Any other value is ignored and returns all banners.
+          schema:
+            type: string
+            enum: [home, about_us]
+        - $ref: '#/components/parameters/Lang'
+        - $ref: '#/components/parameters/OdooDatabase'
+      responses:
+        "200":
+          description: Banners, published only.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/Banner' }
+              example:
+                results:
+                  - id: 1
+                    title: Create valuable moments
+                    page: home
+                    image: /web/image/dg.banner/1/image
+                    show_buttons: true
+                    sequence: 10
+
+  /api/v1/faq:
+    get:
+      tags: [FAQ]
+      summary: Frequently asked questions
+      description: Ordered by `sequence` ascending. `answer` is plain text, not HTML.
+      parameters:
+        - $ref: '#/components/parameters/Lang'
+        - $ref: '#/components/parameters/OdooDatabase'
+      responses:
+        "200":
+          description: FAQ entries, published only.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/FaqEntry' }
+              example:
+                results:
+                  - id: 1
+                    question: How long does verification take?
+                    answer: Most accounts are verified within one business day.
+                    sequence: 10
+
+  /api/v1/news:
+    get:
+      tags: [News]
+      summary: News articles, newest first
+      description: |
+        The list shape deliberately omits the article body so an index page stays
+        light. Fetch `/api/v1/news/{id}` for the full article.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Lang'
+        - $ref: '#/components/parameters/OdooDatabase'
+      responses:
+        "200":
+          description: One page of articles.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageEnvelope'
+                  - type: object
+                    required: [results]
+                    properties:
+                      results:
+                        type: array
+                        items: { $ref: '#/components/schemas/NewsSummary' }
+              example:
+                count: 12
+                limit: 50
+                offset: 0
+                results:
+                  - id: 3
+                    title: Buy TicketON events with 4% cashback
+                    short_text: Purchases in the MY TICKETS section now earn Snappoints.
+                    publication_date: "2026-06-30 09:00:00"
+                    cover_image: /web/image/dg.news/3/cover_image
+
+  /api/v1/news/{id}:
+    get:
+      tags: [News]
+      summary: One news article
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: '#/components/parameters/Lang'
+        - $ref: '#/components/parameters/OdooDatabase'
+      responses:
+        "200":
+          description: The article.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NewsDetail' }
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/jobs:
+    get:
+      tags: [Careers]
+      summary: Open positions, newest first
+      parameters:
+        - name: department
+          in: query
+          required: false
+          description: Case-insensitive exact match on department name, as returned by /api/v1/departments.
+          schema: { type: string }
+          example: Engineering
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Lang'
+        - $ref: '#/components/parameters/OdooDatabase'
+      responses:
+        "200":
+          description: One page of positions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageEnvelope'
+                  - type: object
+                    required: [results]
+                    properties:
+                      results:
+                        type: array
+                        items: { $ref: '#/components/schemas/JobSummary' }
+              example:
+                count: 3
+                limit: 50
+                offset: 0
+                results:
+                  - id: 5
+                    position_name: Database Developer
+                    company_name: Snapp LLC
+                    department: Engineering
+                    employment_type: Permanent
+                    location: Yerevan, Armenia
+                    deadline: "2026-06-30 23:59:00"
+                    published_date: "2026-09-01"
+                    odoo_url: https://odoo.snapp.am/jobs/database-developer-5
+
+  /api/v1/jobs/{id}:
+    get:
+      tags: [Careers]
+      summary: One position, with long-form content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: '#/components/parameters/Lang'
+        - $ref: '#/components/parameters/OdooDatabase'
+      responses:
+        "200":
+          description: The position.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobDetail' }
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/departments:
+    get:
+      tags: [Careers]
+      summary: Departments that currently have an open position
+      description: |
+        For building the careers filter. A department with nothing open never
+        appears, so the filter cannot produce an empty result.
+      parameters:
+        - $ref: '#/components/parameters/Lang'
+        - $ref: '#/components/parameters/OdooDatabase'
+      responses:
+        "200":
+          description: Departments with counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/Department' }
+              example:
+                results:
+                  - id: 2
+                    name: Engineering
+                    job_count: 3
+
+components:
+
+  parameters:
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size. Values above 100 are silently reduced to 100.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, default: 0 }
+
+    Lang:
+      name: lang
+      in: query
+      required: false
+      description: |
+        Odoo locale code. Unrecognised values fall back to the default language
+        instead of erroring. `hy_AM` is not yet available.
+      schema:
+        type: string
+        enum: [en_US, ru_RU]
+        default: en_US
+
+    OdooDatabase:
+      name: X-Odoo-Database
+      in: header
+      required: false
+      description: |
+        Only needed if you call the server directly before the reverse proxy is
+        configured — the host runs several databases and cannot pick one for an
+        anonymous request, returning 404 without this. Once the proxy injects it,
+        omit it entirely.
+      schema: { type: string }
+      example: DG_Odoo_19
+
+  responses:
+
+    NotFound:
+      description: |
+        No **published** record with that id. Returned both for ids that do not
+        exist and for records that exist but are unpublished — the two are
+        deliberately indistinguishable.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: not_found
+            message: No published news article with id 99.
+
+  schemas:
+
+    PageEnvelope:
+      type: object
+      required: [count, limit, offset]
+      properties:
+        count:
+          type: integer
+          description: Total published records matching the query, ignoring pagination.
+        limit:
+          type: integer
+          description: The limit actually applied, after capping.
+        offset:
+          type: integer
+
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string, example: not_found }
+        message: { type: string }
+
+    ImagePath:
+      type: [string, "null"]
+      description: |
+        Path to an image, or null when none was uploaded. Prefix with the server
+        URL. Append `/WIDTHxHEIGHT` for a server-side resize.
+      example: /web/image/dg.news/3/cover_image
+
+    Banner:
+      type: object
+      required: [id, title, page, image, show_buttons, sequence]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        page:
+          type: string
+          enum: [home, about_us]
+        image: { $ref: '#/components/schemas/ImagePath' }
+        show_buttons:
+          type: boolean
+          description: Whether the app-store buttons should render beneath the banner.
+        sequence:
+          type: integer
+          description: Display order, ascending.
+
+    FaqEntry:
+      type: object
+      required: [id, question, answer, sequence]
+      properties:
+        id: { type: integer }
+        question: { type: string }
+        answer:
+          type: string
+          description: Plain text, not HTML.
+        sequence: { type: integer }
+
+    NewsSummary:
+      type: object
+      required: [id, title, short_text, publication_date, cover_image]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        short_text:
+          type: string
+          description: Teaser for the index page.
+        publication_date:
+          type: string
+          description: UTC, "YYYY-MM-DD HH:MM:SS". Sort key for the list.
+          example: "2026-06-30 09:00:00"
+        cover_image: { $ref: '#/components/schemas/ImagePath' }
+
+    NewsDetail:
+      allOf:
+        - $ref: '#/components/schemas/NewsSummary'
+        - type: object
+          required: [detail_image, detailed_text]
+          properties:
+            detail_image:
+              allOf: [{ $ref: '#/components/schemas/ImagePath' }]
+              description: Larger header image for the article page.
+            detailed_text:
+              type: [string, "null"]
+              description: Article body as sanitized HTML.
+              example: <p>For purchases made in the MY TICKETS section…</p>
+
+    JobSummary:
+      type: object
+      required:
+        [id, position_name, company_name, department, employment_type,
+         location, deadline, published_date, odoo_url]
+      properties:
+        id: { type: integer }
+        position_name:
+          type: string
+          description: The job title.
+        company_name: { type: [string, "null"] }
+        department: { type: [string, "null"] }
+        employment_type:
+          type: [string, "null"]
+          description: e.g. "Permanent", "Full-time".
+        location:
+          type: [string, "null"]
+          description: City and country, comma separated. Null when no address is set.
+          example: Yerevan, Armenia
+        deadline:
+          type: [string, "null"]
+          description: Application deadline, UTC. Null when open-ended.
+          example: "2026-06-30 23:59:00"
+        published_date:
+          type: [string, "null"]
+          description: Date only, "YYYY-MM-DD".
+          example: "2026-09-01"
+        odoo_url:
+          type: string
+          description: |
+            Absolute URL of the application form, which handles CV upload and
+            spam protection. Point the Apply button here — this API has no
+            endpoint for submitting an application.
+
+    JobDetail:
+      allOf:
+        - $ref: '#/components/schemas/JobSummary'
+        - type: object
+          required: [openings, experience, description, responsibilities, requirements, benefits]
+          properties:
+            openings:
+              type: integer
+              description: Number of people being hired for this position.
+            experience:
+              type: [string, "null"]
+              description: Short free text.
+              example: 3+ years
+            description:
+              type: [string, "null"]
+              description: About the role, as sanitized HTML.
+            responsibilities:
+              type: [string, "null"]
+              description: |
+                Sanitized HTML, normally a `<ul>`. Render the HTML — this is not
+                a JSON array.
+              example: <ul><li>Database design</li><li>Query optimization</li></ul>
+            requirements:
+              type: [string, "null"]
+              description: Sanitized HTML, normally a `<ul>`.
+            benefits:
+              type: [string, "null"]
+              description: Sanitized HTML, normally a `<ul>`.
+
+    Department:
+      type: object
+      required: [id, name, job_count]
+      properties:
+        id: { type: integer }
+        name:
+          type: string
+          description: Pass this back as the `department` filter on /api/v1/jobs.
+        job_count:
+          type: integer
+          description: Number of currently published positions in this department.
