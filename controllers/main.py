@@ -32,6 +32,7 @@ Design rules for anything added here:
 """
 
 import functools
+import re
 
 from odoo import http
 from odoo.http import request
@@ -43,6 +44,29 @@ DEFAULT_LIMIT = 50
 
 
 REQUIRE_KEY_PARAM = 'x_dg_web_api.require_key'
+
+# Tags that carry meaning even with no text around them, so a field holding only
+# one of these is not empty.
+_EMBEDDED = re.compile(r'<(img|iframe|video|audio|table|hr|svg)\b', re.I)
+_TAGS = re.compile(r'<[^>]+>')
+
+
+def _html(value):
+    """Return a rich-text value, or None when it only looks non-empty.
+
+    Odoo's editor stores `<p><br></p>` for a field the author cleared, and wraps
+    saved content in `<div data-oe-version="2.0">`. Both are truthy strings, so
+    a plain `or None` would report content the reader cannot see -- and the site
+    would render a section heading with nothing beneath it. Strip the markup and
+    decide on what is actually left.
+    """
+    if not value:
+        return None
+    raw = str(value)
+    if _EMBEDDED.search(raw):
+        return raw
+    text = _TAGS.sub('', raw).replace('&nbsp;', ' ').replace('\xa0', ' ')
+    return raw if text.strip() else None
 
 
 def api_key_optional(endpoint):
@@ -174,7 +198,7 @@ def _news_detail(news):
     return {
         **_news_summary(news),
         'detail_image': _image_url(news, 'detail_image'),
-        'detailed_text': news.detailed_text or None,
+        'detailed_text': _html(news.detailed_text),
     }
 
 
@@ -218,10 +242,10 @@ def _job_detail(job):
         **_job_summary(job),
         'openings': job.no_of_recruitment,
         'experience': job.web_experience or None,
-        'description': job.website_description or None,
-        'responsibilities': job.web_responsibilities or None,
-        'requirements': job.web_requirements or None,
-        'benefits': job.web_benefits or None,
+        'description': _html(job.website_description),
+        'responsibilities': _html(job.web_responsibilities),
+        'requirements': _html(job.web_requirements),
+        'benefits': _html(job.web_benefits),
     }
 
 
