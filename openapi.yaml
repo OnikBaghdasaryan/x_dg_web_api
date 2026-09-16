@@ -19,7 +19,15 @@ info:
     * **Dates are `"2026-09-01"`.**
     * **Rich-text fields contain sanitized HTML**, not Markdown — render as HTML.
       These are `detailed_text` on news, and `description`, `responsibilities`,
-      `requirements` and `benefits` on a job.
+      `requirements` and `benefits` on a job. Two things to expect:
+
+      * They may carry Odoo editor attributes, e.g.
+        `<div data-oe-version="2.0">…</div>`. These are inert data attributes;
+        render the HTML as-is or strip them, either is fine.
+      * **`null` reliably means empty.** A field the author cleared is stored by
+        the editor as `<p><br></p>`, which is not null and not an empty string;
+        the API normalises that to `null` so `{field && <Section/>}` works.
+        A field holding only an image, table or embed is *not* treated as empty.
     * **Only published records exist.** Drafts are absent from lists and return
       `404` by id. If content seems missing, it has not been published yet.
     * **Images are returned as paths**, e.g. `/web/image/dg.news/3/cover_image`.
