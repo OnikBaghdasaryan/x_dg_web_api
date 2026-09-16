@@ -23,8 +23,16 @@ info:
     * **Only published records exist.** Drafts are absent from lists and return
       `404` by id. If content seems missing, it has not been published yet.
     * **Images are returned as paths**, e.g. `/web/image/dg.news/3/cover_image`.
-      Prefix with the server URL. Append `/WIDTHxHEIGHT` to have the server
-      resize and cache on the fly: `/web/image/dg.news/3/cover_image/640x360`.
+      Prefix with the server URL.
+
+      Appending `/WIDTHxHEIGHT` asks Odoo to resize, e.g.
+      `/web/image/dg.news/3/cover_image/640x360` — **but this silently does
+      nothing for WebP and SVG sources**, which Odoo refuses to process and
+      returns untouched at full resolution. Since editors may upload either,
+      do not rely on it: resize on your own side (`next/image` handles remote
+      images given a `remotePatterns` entry for this host) and treat the
+      Odoo-side resize as a bonus when it happens to apply.
+
       An unpublished record's image returns a generic placeholder with status
       `200` rather than a 404, so never treat a successful image response as
       proof that a record is published.
@@ -43,8 +51,13 @@ info:
     `{ "results": [...] }` with no `count`.
 
 servers:
-  - url: https://api.snapp.am
-    description: Replace with the base URL you are given. Every path below hangs off it.
+  - url: http://2.28.232.171
+    description: >-
+      Current Odoo server. Plain HTTP until a domain and certificate are in
+      place. Keep this in an environment variable rather than hard-coding it:
+      the switch to HTTPS later is then a one-line change, and a browser on an
+      HTTPS page cannot fetch an HTTP URL at all (mixed content), so until the
+      certificate exists these endpoints must be called server-side.
 
 tags:
   - name: Banners
@@ -349,7 +362,8 @@ components:
       type: [string, "null"]
       description: |
         Path to an image, or null when none was uploaded. Prefix with the server
-        URL. Append `/WIDTHxHEIGHT` for a server-side resize.
+        URL. `/WIDTHxHEIGHT` requests a resize but is ignored for WebP and SVG
+        sources — resize client-side rather than depending on it.
       example: /web/image/dg.news/3/cover_image
 
     Banner:
