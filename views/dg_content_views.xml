@@ -61,6 +61,36 @@
         </field>
     </record>
 
+    <record id="dg_faq_view_form" model="ir.ui.view">
+        <field name="name">dg.faq.form</field>
+        <field name="model">dg.faq</field>
+        <field name="arch" type="xml">
+            <form string="FAQ Entry">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Question"/>
+                        <h1><field name="name" placeholder="e.g. How long does verification take?"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="is_published"/>
+                        </group>
+                    </group>
+                    <separator string="Answer"/>
+                    <div class="text-muted small mb-2">
+                        Plain text. Formatting is not published — if an answer needs links or
+                        bullets, ask for this field to be switched to rich text.
+                    </div>
+                    <field name="description" nolabel="1"
+                           placeholder="Answer the question in one or two sentences."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="dg_faq_action" model="ir.actions.act_window">
         <field name="name">FAQ</field>
         <field name="res_model">dg.faq</field>
@@ -100,12 +130,21 @@
                             <field name="detail_image" widget="image" class="oe_avatar"/>
                         </group>
                     </group>
-                    <group string="Short Text">
-                        <field name="short_text" nolabel="1"/>
-                    </group>
-                    <group string="Detailed Text">
-                        <field name="detailed_text" nolabel="1"/>
-                    </group>
+                    <separator string="Short Text"/>
+                    <div class="text-muted small mb-2">
+                        Plain text teaser shown on the news index. Formatting here is not published.
+                    </div>
+                    <field name="short_text" nolabel="1"
+                           placeholder="One or two sentences summarising the article."/>
+
+                    <separator string="Article Body"/>
+                    <div class="text-muted small mb-2">
+                        <b>Rich text.</b> Headings, bold, links, images and lists all work and are
+                        published as HTML. Type <b>/</b> for blocks, or select text for the toolbar.
+                    </div>
+                    <field name="detailed_text" widget="html" nolabel="1"
+                           options="{'height': 420}"
+                           placeholder="Write the full article here."/>
                 </sheet>
             </form>
         </field>
@@ -134,15 +173,26 @@
                  rather than adding a second one beside it. -->
             <xpath expr="//notebook" position="inside">
                 <page string="Website Content" name="dg_website_content">
-                    <group string="Responsibilities">
-                        <field name="web_responsibilities" nolabel="1"/>
-                    </group>
-                    <group string="Requirements">
-                        <field name="web_requirements" nolabel="1"/>
-                    </group>
-                    <group string="Benefits">
-                        <field name="web_benefits" nolabel="1"/>
-                    </group>
+                    <div class="alert alert-info mb-3" role="status">
+                        These three are <b>rich text editors</b>, not plain text boxes, and they
+                        appear on the public careers page. Use <b>bulleted lists</b> — the website
+                        renders each one as a list.
+                    </div>
+
+                    <separator string="Responsibilities"/>
+                    <field name="web_responsibilities" widget="html" nolabel="1"
+                           options="{'height': 220}"
+                           placeholder="What the person will do, as a bulleted list."/>
+
+                    <separator string="Requirements"/>
+                    <field name="web_requirements" widget="html" nolabel="1"
+                           options="{'height': 220}"
+                           placeholder="What the person needs, as a bulleted list."/>
+
+                    <separator string="Benefits"/>
+                    <field name="web_benefits" widget="html" nolabel="1"
+                           options="{'height': 220}"
+                           placeholder="What the company offers, as a bulleted list."/>
                 </page>
             </xpath>
         </field>
