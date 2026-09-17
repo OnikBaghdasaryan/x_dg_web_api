@@ -19,8 +19,15 @@ All `GET`, all unauthenticated, CORS open to any origin.
 | `/api/v1/jobs` | Paginated open positions |
 | `/api/v1/jobs/{id}` | One position with long-form content |
 | `/api/v1/departments` | Departments that currently have an open position |
+| `POST /api/v1/jobs/{id}/apply` | Submit an application with a CV |
 
 `limit` (capped at 100), `offset` and `lang` are accepted where they apply.
+
+The apply endpoint is `multipart/form-data` and is the one route that writes. It
+sends no CORS headers on purpose: applications are posted from the consuming
+site's own backend, which is where spam protection belongs. Odoo's generic
+`/website/form/hr.applicant` is deliberately not used — it never checks that
+`job_id` refers to a published job, and it answers `200` even on failure.
 The full contract, with response schemas and examples, is in
 [`openapi.yaml`](openapi.yaml) — import it into Postman or generate a client
 from it.

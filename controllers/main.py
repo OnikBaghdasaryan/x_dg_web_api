@@ -31,8 +31,10 @@ Design rules for anything added here:
   keeps payloads small and lets any CDN cache them.
 """
 
+import base64
 import functools
 import re
+from html import escape as html_escape
 
 from odoo import http
 from odoo.http import request
@@ -41,6 +43,12 @@ from odoo.http import request
 # cannot ask for an entire table in a single request.
 MAX_LIMIT = 100
 DEFAULT_LIMIT = 50
+
+# Job application limits. The CV is written straight to ir.attachment, so these
+# are the only thing between an open endpoint and someone filling the disk.
+CV_MAX_BYTES = 10 * 1024 * 1024
+CV_ALLOWED_EXTENSIONS = ('.pdf', '.doc', '.docx', '.odt', '.rtf', '.txt')
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 
 REQUIRE_KEY_PARAM = 'x_dg_web_api.require_key'
@@ -67,6 +75,14 @@ def _html(value):
         return raw
     text = _TAGS.sub('', raw).replace('&nbsp;', ' ').replace('\xa0', ' ')
     return raw if text.strip() else None
+
+
+def _plain_to_html(text):
+    """Turn a plain-text message into safe HTML for an Odoo Html field."""
+    text = (text or '').strip()
+    if not text:
+        return False
+    return '<p>%s</p>' % html_escape(text).replace('\n', '<br>')
 
 
 def api_key_optional(endpoint):
@@ -323,6 +339,76 @@ class DgWebApi(http.Controller):
         if not job:
             return self._not_found('job position', job_id)
         return request.make_json_response(_job_detail(job))
+
+    @http.route(
+        '/api/v1/jobs/<int:job_id>/apply',
+        type='http', auth='public', methods=['POST'],
+        csrf=False, save_session=False,
+    )
+    @api_key_optional
+    def job_apply(self, job_id, **kwargs):
+        """Accept an application for a published job.
+
+        Deliberately not readonly (it writes) and deliberately without CORS: the
+        consuming site posts this from its own backend, where its spam
+        protection lives, rather than from browser code. Odoo's generic
+        /website/form/hr.applicant is avoided on purpose -- it never checks that
+        job_id refers to a *published* job, and it answers 200 even on failure.
+        """
+        # No sudo(): the public record rule limits this to published jobs, so an
+        # application cannot be attached to a draft position by guessing an id.
+        job = request.env['hr.job'].search([('id', '=', job_id)], limit=1)
+        if not job:
+            return self._not_found('job position', job_id)
+
+        name = (kwargs.get('name') or '').strip()
+        email = (kwargs.get('email') or '').strip()
+        errors = {}
+        if not name:
+            errors['name'] = 'Required.'
+        if not email:
+            errors['email'] = 'Required.'
+        elif not EMAIL_RE.match(email):
+            errors['email'] = 'Not a valid email address.'
+
+        upload = request.httprequest.files.get('cv')
+        content = None
+        if upload and upload.filename:
+            if not upload.filename.lower().endswith(CV_ALLOWED_EXTENSIONS):
+                errors['cv'] = 'Allowed types: %s.' % ', '.join(CV_ALLOWED_EXTENSIONS)
+            else:
+                content = upload.read(CV_MAX_BYTES + 1)
+                if len(content) > CV_MAX_BYTES:
+                    errors['cv'] = 'Larger than %d MB.' % (CV_MAX_BYTES // (1024 * 1024))
+
+        if errors:
+            return request.make_json_response(
+                {'error': 'validation_error', 'fields': errors}, status=400)
+
+        # sudo(): the public user has no create right on hr.applicant, and must
+        # not be given one. Every value written below is validated above.
+        applicant = request.env['hr.applicant'].sudo().create({
+            'job_id': job.id,
+            'partner_name': name,
+            'email_from': email,
+            'partner_phone': (kwargs.get('phone') or '').strip() or False,
+            'linkedin_profile': (kwargs.get('linkedin') or '').strip() or False,
+            # applicant_notes is an Html field, and this text comes from an
+            # anonymous stranger that recruiters will later open in the backend.
+            # Escape it and build the markup here rather than trusting the
+            # field's own sanitiser to be the only line of defence.
+            'applicant_notes': _plain_to_html(kwargs.get('message')),
+        })
+
+        if content:
+            request.env['ir.attachment'].sudo().create({
+                'name': upload.filename,
+                'datas': base64.b64encode(content),
+                'res_model': 'hr.applicant',
+                'res_id': applicant.id,
+            })
+
+        return request.make_json_response({'ok': True, 'id': applicant.id}, status=201)
 
     # ----------------------------------------------------------------- shared
     @http.route('/api/v1/departments', **_PUBLIC)

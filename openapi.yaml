@@ -3,11 +3,16 @@ openapi: 3.1.0
 info:
   title: Snapp Content API
   version: "1.0.0"
-  summary: Read-only JSON API serving the public website's content.
+  summary: JSON API serving the public website's content, plus job applications.
   description: |
-    Seven `GET` endpoints. No authentication, no token, no cookie. CORS is open to
-    all origins, so these are callable from a Next.js server component, a route
-    handler, or directly from browser code.
+    Seven `GET` endpoints and one `POST`. No authentication, no token, no cookie.
+
+    The `GET` endpoints send CORS headers, so they are callable from a Next.js
+    server component, a route handler, or directly from browser code.
+
+    **The `POST` deliberately sends no CORS headers.** Submit applications from
+    your own backend, not from browser code — that is where your spam protection
+    (Turnstile, reCAPTCHA, rate limiting) belongs, and Odoo performs none of it.
 
     ## Conventions that hold everywhere
 
@@ -258,6 +263,96 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/JobDetail' }
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/jobs/{id}/apply:
+    post:
+      tags: [Careers]
+      summary: Submit an application for a published job
+      description: |
+        `multipart/form-data`, because it carries a CV file.
+
+        Call this **from your server**, not the browser: no CORS headers are
+        sent, and this is the point where spam protection has to happen. Odoo
+        applies none — it has no captcha configured on this endpoint by design,
+        since a server-to-server post cannot supply a captcha token.
+
+        A successful call creates an applicant in Odoo's recruitment pipeline,
+        linked to the job, with the CV attached.
+
+        Applying to an unpublished job returns `404`, identically to a job that
+        does not exist — a closed position cannot be applied to by guessing ids.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job id from /api/v1/jobs.
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                  description: Applicant's full name.
+                email:
+                  type: string
+                  description: Must look like an address, or the call is rejected.
+                phone:
+                  type: string
+                linkedin:
+                  type: string
+                message:
+                  type: string
+                  description: >-
+                    Cover note as plain text. It is HTML-escaped before storage,
+                    so markup is shown literally to recruiters rather than
+                    rendered.
+                cv:
+                  type: string
+                  format: binary
+                  description: >-
+                    Optional. Max 10 MB. Allowed: .pdf .doc .docx .odt .rtf .txt
+            encoding:
+              cv:
+                contentType: application/pdf, application/msword, application/octet-stream
+      responses:
+        "201":
+          description: Application recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, id]
+                properties:
+                  ok: { type: boolean, const: true }
+                  id:
+                    type: integer
+                    description: Id of the applicant record created in Odoo.
+              example: { ok: true, id: 42 }
+        "400":
+          description: One or more fields were rejected. Nothing was created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, fields]
+                properties:
+                  error: { type: string, const: validation_error }
+                  fields:
+                    type: object
+                    additionalProperties: { type: string }
+                    description: Field name to human-readable reason.
+              example:
+                error: validation_error
+                fields:
+                  email: Not a valid email address.
+                  cv: Larger than 10 MB.
         "404":
           $ref: '#/components/responses/NotFound'
 
