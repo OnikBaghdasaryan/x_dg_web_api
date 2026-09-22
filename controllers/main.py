@@ -371,7 +371,16 @@ class DgWebApi(http.Controller):
         elif not EMAIL_RE.match(email):
             errors['email'] = 'Not a valid email address.'
 
+        # Accept the file under any field name. The consuming site is free to
+        # call it cv, resume, file or anything else, and a mismatch used to mean
+        # the CV was silently dropped while the application still succeeded --
+        # the worst possible failure for a job applicant.
         upload = request.httprequest.files.get('cv')
+        if not (upload and upload.filename):
+            upload = next(
+                (f for f in request.httprequest.files.values() if f and f.filename),
+                None,
+            )
         content = None
         if upload and upload.filename:
             if not upload.filename.lower().endswith(CV_ALLOWED_EXTENSIONS):
