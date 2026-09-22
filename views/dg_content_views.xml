@@ -179,6 +179,16 @@
                         renders each one as a list.
                     </div>
 
+                    <separator string="Description"/>
+                    <div class="text-muted small mb-2">
+                        The main body of the job advert. Odoo normally expects this to be
+                        edited on its own website pages, which we do not use -- so it is
+                        surfaced here instead.
+                    </div>
+                    <field name="website_description" widget="html" nolabel="1"
+                           options="{'height': 260}"
+                           placeholder="Describe the role and the team."/>
+
                     <separator string="Responsibilities"/>
                     <field name="web_responsibilities" widget="html" nolabel="1"
                            options="{'height': 220}"
