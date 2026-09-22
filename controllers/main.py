@@ -375,20 +375,26 @@ class DgWebApi(http.Controller):
         # call it cv, resume, file or anything else, and a mismatch used to mean
         # the CV was silently dropped while the application still succeeded --
         # the worst possible failure for a job applicant.
+        #
+        # Errors are reported back under the name the caller actually used, so a
+        # form that named the input "resume" can show "file too large" next to
+        # that input instead of falling back to a generic error.
+        cv_field = 'cv'
         upload = request.httprequest.files.get('cv')
         if not (upload and upload.filename):
-            upload = next(
-                (f for f in request.httprequest.files.values() if f and f.filename),
-                None,
-            )
+            for field_name, uploaded in request.httprequest.files.items():
+                if uploaded and uploaded.filename:
+                    cv_field, upload = field_name, uploaded
+                    break
+
         content = None
         if upload and upload.filename:
             if not upload.filename.lower().endswith(CV_ALLOWED_EXTENSIONS):
-                errors['cv'] = 'Allowed types: %s.' % ', '.join(CV_ALLOWED_EXTENSIONS)
+                errors[cv_field] = 'Allowed types: %s.' % ', '.join(CV_ALLOWED_EXTENSIONS)
             else:
                 content = upload.read(CV_MAX_BYTES + 1)
                 if len(content) > CV_MAX_BYTES:
-                    errors['cv'] = 'Larger than %d MB.' % (CV_MAX_BYTES // (1024 * 1024))
+                    errors[cv_field] = 'Larger than %d MB.' % (CV_MAX_BYTES // (1024 * 1024))
 
         if errors:
             return request.make_json_response(
@@ -401,7 +407,12 @@ class DgWebApi(http.Controller):
             'partner_name': name,
             'email_from': email,
             'partner_phone': (kwargs.get('phone') or '').strip() or False,
-            'linkedin_profile': (kwargs.get('linkedin') or '').strip() or False,
+            # Accept both spellings: 'linkedin' as documented, and
+            # 'linkedin_profile' as Odoo names the field. A caller using the
+            # latter previously had the value silently discarded.
+            'linkedin_profile': (
+                kwargs.get('linkedin') or kwargs.get('linkedin_profile') or ''
+            ).strip() or False,
             # applicant_notes is an Html field, and this text comes from an
             # anonymous stranger that recruiters will later open in the backend.
             # Escape it and build the markup here rather than trusting the
