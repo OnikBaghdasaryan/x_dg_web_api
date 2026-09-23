@@ -143,6 +143,7 @@
                         published as HTML. Type <b>/</b> for blocks, or select text for the toolbar.
                     </div>
                     <field name="detailed_text" widget="html" nolabel="1"
+                           options="{'codeview': true}"
                            placeholder="Write the full article here."/>
                 </sheet>
             </form>
@@ -186,18 +187,22 @@
                         surfaced here instead.
                     </div>
                     <field name="website_description" widget="html" nolabel="1"
+                           options="{'codeview': true}"
                            placeholder="Describe the role and the team."/>
 
                     <separator string="Responsibilities"/>
                     <field name="web_responsibilities" widget="html" nolabel="1"
+                           options="{'codeview': true}"
                            placeholder="What the person will do, as a bulleted list."/>
 
                     <separator string="Requirements"/>
                     <field name="web_requirements" widget="html" nolabel="1"
+                           options="{'codeview': true}"
                            placeholder="What the person needs, as a bulleted list."/>
 
                     <separator string="Benefits"/>
                     <field name="web_benefits" widget="html" nolabel="1"
+                           options="{'codeview': true}"
                            placeholder="What the company offers, as a bulleted list."/>
                 </page>
             </xpath>
