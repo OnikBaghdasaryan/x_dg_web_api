@@ -59,6 +59,39 @@ REQUIRE_KEY_PARAM = 'x_dg_web_api.require_key'
 _EMBEDDED = re.compile(r'<(img|iframe|video|audio|table|hr|svg)\b', re.I)
 _TAGS = re.compile(r'<[^>]+>')
 
+# A block element holding nothing a reader can see. Odoo's editor leaves runs
+# of these behind when text is deleted -- particularly when someone clears the
+# boilerplate Odoo pre-fills a job description with -- and they render as blank
+# lines on the published page that cannot be removed by backspacing.
+_EMPTY_BLOCK = r'<(?P<t>p|div|h[1-6])(?:\s[^>]*)?>(?:\s|&nbsp;|\xa0|<br\s*/?>)*</(?P=t)>'
+_TRAILING_EMPTY = re.compile(r'(?:\s*' + _EMPTY_BLOCK + r')+\s*$', re.I)
+_LEADING_EMPTY = re.compile(r'^(?:\s*' + _EMPTY_BLOCK + r')+', re.I)
+
+# Odoo's editor wraps saved content in a container, so the empty paragraphs it
+# leaves behind sit *inside* that wrapper rather than at the end of the string.
+_WRAPPER = re.compile(
+    r'^(?P<open><(?P<t>div|section)(?:\s[^>]*)?>)(?P<inner>.*)(?P<close></(?P=t)>)$',
+    re.S | re.I,
+)
+
+
+def _trim_empty_blocks(html):
+    """Strip invisible block elements from both ends, wrapper included."""
+    html = _TRAILING_EMPTY.sub('', _LEADING_EMPTY.sub('', html)).strip()
+    match = _WRAPPER.match(html)
+    if not match:
+        return html
+    inner = match.group('inner')
+    # Only recurse when the tag really does wrap everything -- otherwise
+    # '<div>A</div><div>B</div>' would be mistaken for one container.
+    tag = match.group('t').lower()
+    if inner.lower().count('<%s' % tag) != inner.lower().count('</%s>' % tag):
+        return html
+    inner = _trim_empty_blocks(inner)
+    if not inner.strip():
+        return ''
+    return match.group('open') + inner + match.group('close')
+
 
 def _html(value):
     """Return a rich-text value, or None when it only looks non-empty.
@@ -72,6 +105,13 @@ def _html(value):
     if not value:
         return None
     raw = str(value)
+
+    # Trim empty paragraphs off both ends before deciding anything: they are
+    # invisible in the editor but show as blank space once published.
+    raw = _trim_empty_blocks(raw)
+    if not raw:
+        return None
+
     if _EMBEDDED.search(raw):
         return raw
     text = _TAGS.sub('', raw).replace('&nbsp;', ' ').replace('\xa0', ' ')
