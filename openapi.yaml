@@ -49,9 +49,15 @@ info:
       An unpublished record's image returns a generic placeholder with status
       `200` rather than a 404, so never treat a successful image response as
       proof that a record is published.
-    * **`lang` is accepted on every endpoint.** Use an Odoo locale code such as
-      `en_US` or `ru_RU`. An unrecognised value falls back to the default rather
-      than erroring.
+    * **Language** is taken from the `Accept-Language` request header, so simply
+      sending `Accept-Language: ru` returns Russian content. Short codes (`ru`),
+      regional codes (`ru-RU`) and Odoo codes (`ru_RU`) are all matched against
+      the languages installed in Odoo.
+
+      A `?lang=` query parameter overrides the header where you need to force a
+      language. An unrecognised value in either falls back to the default rather
+      than erroring, so a language Odoo does not have installed returns the
+      default language instead of failing.
 
     ## Pagination
 

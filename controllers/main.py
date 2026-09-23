@@ -53,6 +53,7 @@ EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 
 REQUIRE_KEY_PARAM = 'x_dg_web_api.require_key'
+TRIM_HTML_PARAM = 'x_dg_web_api.trim_empty_html'
 
 # Tags that carry meaning even with no text around them, so a field holding only
 # one of these is not empty.
@@ -106,11 +107,16 @@ def _html(value):
         return None
     raw = str(value)
 
-    # Trim empty paragraphs off both ends before deciding anything: they are
-    # invisible in the editor but show as blank space once published.
-    raw = _trim_empty_blocks(raw)
-    if not raw:
-        return None
+    # Trimming is opt-in. Deleting text in Odoo's editor leaves runs of
+    # <p><br></p> behind that publish as blank space and cannot be backspaced
+    # away, but stripping them means the API returns something other than what
+    # the author stored -- so the site owner decides. Enable by setting
+    # x_dg_web_api.trim_empty_html to 1.
+    if request.env['ir.config_parameter'].sudo().get_param(
+            TRIM_HTML_PARAM, '0') in ('1', 'true', 'True'):
+        raw = _trim_empty_blocks(raw)
+        if not raw:
+            return None
 
     if _EMBEDDED.search(raw):
         return raw
@@ -165,20 +171,41 @@ def api_key_optional(endpoint):
     return wrapper
 
 
-def _model(model_name, lang=None):
-    """Return the model bound to the requested language.
+def _resolve_lang(lang=None):
+    """Work out which installed language to answer in.
 
-    Titles, answers and article bodies are translate=True fields, so the public
-    site must be able to ask for a specific language. The code is validated
-    against the languages actually installed in Odoo rather than trusted, so an
-    unknown or malicious value quietly falls back to the default instead of
-    poisoning the context.
+    Two callers, two conventions: an explicit ?lang=ru_RU wins, and otherwise
+    the Accept-Language header is used -- which is how the website signals the
+    visitor's choice, sending short codes like "hy" rather than Odoo's "hy_AM".
+    Both are matched against the languages actually installed, so an unknown or
+    malicious value falls back to the default rather than poisoning the context.
     """
+    codes = request.env['res.lang'].sudo().search([]).mapped('code')
+    if not codes:
+        return None
+
+    candidates = [lang] if lang else []
+    for part in (request.httprequest.headers.get('Accept-Language') or '').split(','):
+        code = part.split(';')[0].strip()
+        if code and code != '*':
+            candidates.append(code)
+
+    for candidate in candidates:
+        wanted = candidate.replace('-', '_')
+        if wanted in codes:
+            return wanted
+        prefix = wanted.split('_')[0].lower()
+        for code in codes:
+            if code.split('_')[0].lower() == prefix:
+                return code
+    return None
+
+
+def _model(model_name, lang=None):
+    """Return the model bound to the language the caller asked for."""
     Model = request.env[model_name]
-    if not lang:
-        return Model
-    installed = request.env['res.lang'].sudo().search([('code', '=', lang)], limit=1)
-    return Model.with_context(lang=installed.code) if installed else Model
+    resolved = _resolve_lang(lang)
+    return Model.with_context(lang=resolved) if resolved else Model
 
 
 def _as_int(value, default, minimum=0, maximum=None):
