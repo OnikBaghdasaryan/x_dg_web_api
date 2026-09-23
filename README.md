@@ -52,6 +52,20 @@ Two fields do need `sudo()` and are commented as such: `hr.contract.type` has no
 public ACL at all, and the `res.partner` public rule hides the office address.
 Odoo's own public job template sudoes exactly the same two.
 
+Two behaviours are controlled by system parameters, both off by default:
+
+* `x_dg_web_api.trim_empty_html` — strip empty paragraphs from the ends of
+  rich-text values. Odoo's editor leaves runs of `<p><br></p>` behind that
+  publish as blank space and cannot be backspaced away, but stripping them
+  means returning something other than what the author stored, so it is the
+  site owner's call.
+* `x_dg_web_api.require_key` — see below.
+
+Language comes from the `Accept-Language` header, with `?lang=` overriding it.
+Short (`ru`), regional (`ru-RU`) and Odoo (`ru_RU`) codes are all matched
+against the installed languages; anything unrecognised falls back to the
+default.
+
 An optional API key can be switched on without a code change by setting the
 system parameter `x_dg_web_api.require_key` to `1` and issuing a key under
 **Web Content → API Clients**. Keys are stored as SHA-256 digests, shown once,
