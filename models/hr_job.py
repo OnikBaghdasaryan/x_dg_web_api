@@ -22,6 +22,12 @@ class HrJob(models.Model):
     """
     _inherit = 'hr.job'
 
+    # Stock Odoo defaults website_description to a page of marketing
+    # boilerplate, meant to be edited on its own website pages. A site that
+    # renders the API instead would publish that text verbatim unless someone
+    # noticed and deleted it on every new position. Start empty instead.
+    website_description = fields.Html(default=False)
+
     application_deadline = fields.Datetime(
         string='Application Deadline',
         help='Last moment applications are accepted. Shown on the careers page.',
