@@ -33,6 +33,7 @@ Design rules for anything added here:
 
 import base64
 import functools
+import json
 import re
 from html import escape as html_escape
 
@@ -429,6 +430,83 @@ class DgWebApi(http.Controller):
             })
 
         return request.make_json_response({'ok': True, 'id': applicant.id}, status=201)
+
+    # -------------------------------------------------------------- contact
+    @http.route(
+        '/api/v1/contact',
+        type='http', auth='public', methods=['POST'],
+        csrf=False, save_session=False,
+    )
+    @api_key_optional
+    def contact(self, **kwargs):
+        """Turn a website contact form submission into a helpdesk ticket.
+
+        Takes a JSON body rather than form fields, because that is what the
+        consuming site sends. type='http' is used instead of type='jsonrpc'
+        deliberately: jsonrpc expects a JSON-RPC envelope, while this is a
+        plain JSON object.
+
+        Like the apply endpoint this writes, so it is not readonly, and it
+        sends no CORS headers -- it is posted from the site's own origin.
+        Nothing here rate-limits or checks a captcha; that belongs in front.
+        """
+        try:
+            payload = json.loads(request.httprequest.get_data() or b'{}')
+        except ValueError:
+            return request.make_json_response(
+                {'error': 'invalid_json', 'message': 'Body must be a JSON object.'},
+                status=400)
+        if not isinstance(payload, dict):
+            return request.make_json_response(
+                {'error': 'invalid_json', 'message': 'Body must be a JSON object.'},
+                status=400)
+
+        def field(key):
+            value = payload.get(key)
+            return value.strip() if isinstance(value, str) else ''
+
+        name, email = field('name'), field('email')
+        subject, question = field('subject'), field('question')
+        phone, company = field('phone'), field('company')
+
+        errors = {}
+        for key, value in (('name', name), ('email', email),
+                           ('subject', subject), ('question', question)):
+            if not value:
+                errors[key] = 'Required.'
+        if email and not EMAIL_RE.match(email):
+            errors['email'] = 'Not a valid email address.'
+        if errors:
+            return request.make_json_response(
+                {'error': 'validation_error', 'fields': errors}, status=400)
+
+        # The company has no dedicated field on a ticket, and creating a
+        # res.partner for every enquiry would fill the database with junk from
+        # an open endpoint. Keep it in the body where a reader will see it.
+        description = _plain_to_html(question)
+        if company:
+            description = '<p><strong>Company:</strong> %s</p>%s' % (
+                html_escape(company), description)
+
+        if 'helpdesk.ticket' not in request.env:
+            # Helpdesk is an Enterprise app. Checked here rather than up front
+            # so a malformed request still gets a useful 400 on an instance
+            # where Helpdesk happens to be missing.
+            return request.make_json_response({
+                'error': 'unavailable',
+                'message': 'Helpdesk is not installed on this Odoo instance.',
+            }, status=503)
+
+        # sudo(): the public user cannot create tickets, and must not be able
+        # to. Every value written below has been validated above.
+        ticket = request.env['helpdesk.ticket'].sudo().create({
+            'name': subject,
+            'partner_name': name,
+            'partner_email': email,
+            'partner_phone': phone or False,
+            'description': description,
+        })
+        return request.make_json_response({'ok': True, 'id': ticket.id}, status=201)
 
     # ----------------------------------------------------------------- shared
     @http.route('/api/v1/departments', **_PUBLIC)

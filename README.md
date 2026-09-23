@@ -20,6 +20,7 @@ All `GET`, all unauthenticated, CORS open to any origin.
 | `/api/v1/jobs/{id}` | One position with long-form content |
 | `/api/v1/departments` | Departments that currently have an open position |
 | `POST /api/v1/jobs/{id}/apply` | Submit an application with a CV |
+| `POST /api/v1/contact` | Contact enquiry, creates a Helpdesk ticket |
 
 `limit` (capped at 100), `offset` and `lang` are accepted where they apply.
 
