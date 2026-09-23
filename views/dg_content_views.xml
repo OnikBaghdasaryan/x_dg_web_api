@@ -174,9 +174,10 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Website Content" name="dg_website_content">
                     <div class="alert alert-info mb-3" role="status">
-                        These three are <b>rich text editors</b>, not plain text boxes, and they
-                        appear on the public careers page. Use <b>bulleted lists</b> — the website
-                        renders each one as a list.
+                        All four boxes below are <b>rich text editors</b>, not plain text, and
+                        they appear on the public careers page. Description is the opening
+                        paragraphs; use <b>bulleted lists</b> for the other three, which the
+                        website renders as lists.
                     </div>
 
                     <separator string="Description"/>
