@@ -307,8 +307,8 @@ def _job_summary(job):
         'department': job.department_id.name or None,
         'employment_type': contract_type.name or None,
         'location': ', '.join(part for part in (address.city, address.country_id.name) if part) or None,
-        'deadline': job.application_deadline,
-        'published_date': job.published_date,
+        'deadline': job.application_deadline or None,
+        'published_date': job.published_date or None,
         # This points at the Odoo-hosted page, not your site. Keep it for the
         # "Apply" hand-off, or drop it and build your own detail URL from `id`.
         'odoo_url': job.full_url,
